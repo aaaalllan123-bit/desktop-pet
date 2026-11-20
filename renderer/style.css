@@ -21,19 +21,13 @@ html, body {
 #pet[data-mode="drag"] .sprite { cursor: grabbing; }
 
 /* ---- per-mode animation ---- */
-[data-mode="idle"]  #body { animation: breathe 2.4s ease-in-out infinite; }
-[data-mode="walk"]  #body { animation: walk .45s ease-in-out infinite; }
-[data-mode="sit"]   #body { transform: scaleY(.88) scaleX(1.06); }
-[data-mode="sleep"] #body { animation: breathe 4s ease-in-out infinite; filter: saturate(.7); }
-[data-mode="happy"] #body { animation: wiggle .3s ease-in-out infinite; }
-[data-mode="dance"] #body { animation: dance .5s ease-in-out infinite; }
+/* The pet stays still on its own; it only shakes right after a click (or swings while held). */
+[data-mode="sleep"] #body { filter: saturate(.7); }
 [data-mode="drag"]  #body { animation: dangle .6s ease-in-out infinite; transform-origin: 50% 0; }
-[data-mode="fall"]  #body { transform: rotate(-8deg) scaleY(1.05); }
+[data-mode="fall"]  #body { transform: rotate(-8deg); }
+#body.shake { animation: wiggle .15s ease-in-out 4; }
 
-@keyframes breathe { 50% { transform: scaleY(.96) scaleX(1.02); } }
-@keyframes walk    { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6px) rotate(3deg); } }
 @keyframes wiggle  { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-@keyframes dance   { 0%,100% { transform: translateY(0) rotate(-10deg) scaleY(.95); } 50% { transform: translateY(-12px) rotate(10deg) scaleY(1.05); } }
 @keyframes dangle  { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
 
 /* ---- speech bubble ---- */

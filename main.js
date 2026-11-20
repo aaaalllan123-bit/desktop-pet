@@ -268,6 +268,7 @@ ipcMain.on('release', () => {
     // a plain click
     if (pet.mode !== 'sleep') {
       setMode('happy'); pet.timer = 45; hop();
+      send('fx', 'shake');
       const lines = char()?.lines ?? DEFAULT_LINES;
       say(lines[Math.floor(Math.random() * lines.length)]);
     }
@@ -331,13 +332,15 @@ async function selfTest(dir) {
     fs.writeFileSync(path.join(dir, `${name}.png`), (await win.webContents.capturePage()).toPNG());
   const report = { characters: characters.map((c) => ({ name: c.name, images: Object.keys(c.images), music: c.music.length })) };
   await wait(2500);
-  report.image = await js('({ src: img.src.split("/").pop(), w: img.naturalWidth, mode: petEl.dataset.mode })');
+  report.image = await js('({ src: img.src.split("/").pop(), w: img.naturalWidth, mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName })');
   await snap('1-start');
   ipcMain.emit('press', {}, { ox: 120, oy: 200 }); ipcMain.emit('release');
-  await wait(300); report.afterClick = pet.mode; await snap('2-click');
+  await wait(300); report.afterClick = { mode: pet.mode, anim: await js('getComputedStyle(bodyEl).animationName') };
+  await wait(1500); report.afterClickSettled = await js('getComputedStyle(bodyEl).animationName'); await snap('2-click');
   send('music', { cmd: 'toggle' }); await wait(1500);
   report.music = await js('({ playing: !audio.paused, t: audio.currentTime, track: tracks[trackIdx]?.name })');
   report.musicPlaying = musicPlaying;
+  await wait(4000); report.whileMusic = await js('({ mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName })');
   switchCharacter(Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || "")) ) ); await wait(1500);
   report.afterSwitch = await js(`({
     name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,

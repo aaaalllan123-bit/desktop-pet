@@ -112,9 +112,16 @@ function particle(char) {
   fx.appendChild(p);
   setTimeout(() => p.remove(), 1900);
 }
+const bodyEl = document.getElementById('body');
 pet.on('fx', (kind) => {
   if (kind === 'hearts') for (let i = 0; i < 5; i++) setTimeout(() => particle('💗'), i * 120);
+  if (kind === 'shake') {
+    bodyEl.classList.remove('shake');
+    void bodyEl.offsetWidth; // restart the animation if clicked again quickly
+    bodyEl.classList.add('shake');
+  }
 });
+bodyEl.addEventListener('animationend', () => bodyEl.classList.remove('shake'));
 setInterval(() => {
   if (!audio.paused) particle(Math.random() < 0.5 ? '♪' : '♫');
   else if (mode === 'sleep') particle('💤');
