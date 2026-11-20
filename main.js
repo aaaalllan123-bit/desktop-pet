@@ -9,7 +9,7 @@ const WIN_H = 260;
 const TICK_MS = 33;
 const GRAVITY = 1.2;
 const SLEEP_AFTER_MS = 90_000;
-const IMG_EXT = /\.(png|gif|jpe?g|webp|svg)$/i;
+const IMG_EXT = /\.(png|gif|jpe?g|webp|svg|apng|webm|mp4|mov|m4v)$/i; // pictures and videos
 const AUDIO_EXT = /\.(mp3|wav|ogg|m4a|flac|aac)$/i;
 const DEFAULT_LINES = ['Hi there!', 'Hehe~', 'Play with me!', "What're you working on?", 'Snack time?', '♪ la la la ♪'];
 
@@ -77,6 +77,8 @@ function readCharacter(dir, folderName) {
     lines: Array.isArray(cfg.lines) && cfg.lines.length ? cfg.lines : DEFAULT_LINES,
     size: cfg.size || 140,
     speed: cfg.speed || 2,
+    chromaKey: cfg.chromaKey || null,          // e.g. "#00ff00" to remove a green-screen background
+    chromaTolerance: cfg.chromaTolerance ?? 0.3,
   };
 }
 
@@ -335,8 +337,14 @@ async function selfTest(dir) {
   send('music', { cmd: 'toggle' }); await wait(1500);
   report.music = await js('({ playing: !audio.paused, t: audio.currentTime, track: tracks[trackIdx]?.name })');
   report.musicPlaying = musicPlaying;
-  switchCharacter(1); await wait(1200);
-  report.afterSwitch = await js('({ src: img.src.split("/").pop(), playing: !audio.paused, track: tracks[trackIdx]?.name })');
+  switchCharacter(characters.length - 1); await wait(1500);
+  report.afterSwitch = await js(`({
+    name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,
+    showing: sprites.filter((s) => !s.hidden).map((s) => s.id),
+    video: vid.dataset.src ? { w: vid.videoWidth, h: vid.videoHeight, t: vid.currentTime } : null,
+    cornerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(2, 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),
+    centerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),
+  })`);
   await snap('3-switch');
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 2));
   app.quit();

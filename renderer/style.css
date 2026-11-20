@@ -15,9 +15,10 @@ html, body {
   width: var(--size); margin-left: calc(var(--size) / -2);
 }
 #body { transform-origin: 50% 100%; }
-#img { display: block; width: 100%; cursor: grab; transition: transform .15s; }
-#pet.flip #img { transform: scaleX(-1); }
-#pet[data-mode="drag"] #img { cursor: grabbing; }
+.sprite { display: block; width: 100%; height: auto; cursor: grab; transition: transform .15s; }
+.sprite[hidden] { display: none; }
+#pet.flip .sprite { transform: scaleX(-1); }
+#pet[data-mode="drag"] .sprite { cursor: grabbing; }
 
 /* ---- per-mode animation ---- */
 [data-mode="idle"]  #body { animation: breathe 2.4s ease-in-out infinite; }

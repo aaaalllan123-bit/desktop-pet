@@ -51,6 +51,19 @@ characters/
 
 **Picture names** (all optional except one picture): `idle`, `walk`, `sit`, `sleep`, `happy`, `dance`, `drag`, `fall`. Any mode without its own picture uses `idle`. PNG, GIF (animated is fine), JPG, WebP and SVG all work. Transparent PNGs look best. **Draw the character facing right**; the app flips it when it walks left.
 
+**Videos work too.** Name them the same way (`idle.mp4`, `walk.webm`, `dance.mov` ...); they loop silently while the pet is in that mode, and you can mix videos and pictures in one character. Keep them short (2–5 seconds) and small (about 300–500 px wide).
+
+The background of the video needs to disappear, or you'll see a box on the desktop. Two ways:
+
+- **Green screen (easiest):** film or edit the character in front of a solid green (or blue) background, then add this to `character.json`:
+  ```json
+  { "chromaKey": "#00ff00", "chromaTolerance": 0.3 }
+  ```
+  `chromaKey` is the background colour to remove. If green edges remain, raise `chromaTolerance` a little (e.g. `0.4`); if parts of the character vanish, lower it. Don't use that colour on the character itself.
+- **Transparent video:** a `.webm` (VP9) exported with an alpha channel plays as-is, with no `chromaKey` needed. Many editors and AI background removers (e.g. Kapwing, Unscreen, After Effects, DaVinci Resolve) can export this.
+
+Plain MP4/MOV files can't store transparency, so they need the green-screen option.
+
 **Music:** MP3, WAV, OGG, M4A, FLAC or AAC. Songs play in alphabetical order and loop.
 
 **character.json** (optional):

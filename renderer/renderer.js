@@ -1,5 +1,9 @@
 const petEl = document.getElementById('pet');
 const img = document.getElementById('img');
+const vid = document.getElementById('vid');
+const cvs = document.getElementById('cvs');
+const sprites = [img, vid, cvs];
+const isVideo = (url) => /\.(webm|mp4|mov|m4v)$/i.test(url);
 const bubble = document.getElementById('bubble');
 const fx = document.getElementById('fx');
 
@@ -10,7 +14,55 @@ let mode = 'idle';
 function updateImage() {
   if (!chr) return;
   const src = chr.images[mode] || chr.images.idle;
-  if (img.src !== src) img.src = src;
+  if (isVideo(src)) {
+    img.hidden = true;
+    if (vid.dataset.src !== src) {
+      vid.dataset.src = src;
+      vid.src = src;
+      vid.play().catch(() => {});
+    }
+    const keyed = !!chr.chromaKey;
+    vid.hidden = keyed;   // with a green screen we draw the cleaned-up frames on the canvas instead
+    cvs.hidden = !keyed;
+    if (keyed) startKeying();
+  } else {
+    vid.hidden = true; cvs.hidden = true; img.hidden = false;
+    if (vid.dataset.src) { vid.pause(); vid.removeAttribute('src'); delete vid.dataset.src; vid.load(); }
+    if (img.src !== src) img.src = src;
+  }
+}
+
+// ---------- green-screen removal ----------
+const ctx = cvs.getContext('2d', { willReadFrequently: true });
+let keying = false;
+function hexToRgb(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function startKeying() {
+  if (keying) return;
+  keying = true;
+  requestAnimationFrame(drawKeyed);
+}
+function drawKeyed() {
+  if (cvs.hidden || !chr?.chromaKey) { keying = false; return; }
+  const w = vid.videoWidth, h = vid.videoHeight;
+  if (w && h && vid.readyState >= 2) {
+    if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
+    ctx.drawImage(vid, 0, 0, w, h);
+    const frame = ctx.getImageData(0, 0, w, h);
+    const d = frame.data;
+    const [kr, kg, kb] = hexToRgb(chr.chromaKey);
+    const tol = chr.chromaTolerance * 441;   // 441 = max distance between two colours
+    const soft = tol * 0.4;                  // soft edge so the outline isn't jagged
+    for (let i = 0; i < d.length; i += 4) {
+      const dist = Math.hypot(d[i] - kr, d[i + 1] - kg, d[i + 2] - kb);
+      if (dist < tol) d[i + 3] = 0;
+      else if (dist < tol + soft) d[i + 3] = Math.round(255 * (dist - tol) / soft);
+    }
+    ctx.putImageData(frame, 0, 0);
+  }
+  requestAnimationFrame(drawKeyed);
 }
 
 pet.on('character', (c) => {
@@ -94,37 +146,38 @@ function setIgnore(v) {
   if (v !== ignoring) { ignoring = v; pet.send('ignore-mouse', v); }
 }
 window.addEventListener('mousemove', (e) => {
-  if (!holding) setIgnore(e.target !== img);
+  if (!holding) setIgnore(!sprites.includes(e.target));
 });
 
-// ---------- press / drag / click ----------
-img.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
-  holding = true;
-  img.setPointerCapture(e.pointerId);
-  pet.send('press', { ox: e.clientX, oy: e.clientY });
-});
-img.addEventListener('pointerup', (e) => {
-  if (e.button !== 0) return;
-  holding = false;
-  pet.send('release');
-});
-img.addEventListener('dblclick', () => pet.send('dblclick'));
-img.addEventListener('contextmenu', (e) => { e.preventDefault(); pet.send('menu'); });
-
-// ---------- petting: rub the mouse back and forth over the pet ----------
+// ---------- press / drag / click / petting (on whichever sprite is showing) ----------
 let rub = 0;
 let lastRub = 0;
 let cooldown = 0;
-img.addEventListener('mousemove', (e) => {
-  if (holding || e.buttons) return;
-  const now = Date.now();
-  if (now - lastRub > 400) rub = 0;
-  lastRub = now;
-  rub += Math.abs(e.movementX) + Math.abs(e.movementY);
-  if (rub > 700 && now > cooldown) {
-    rub = 0;
-    cooldown = now + 2500;
-    pet.send('petted');
-  }
-});
+for (const el of sprites) {
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    holding = true;
+    el.setPointerCapture(e.pointerId);
+    pet.send('press', { ox: e.clientX, oy: e.clientY });
+  });
+  el.addEventListener('pointerup', (e) => {
+    if (e.button !== 0) return;
+    holding = false;
+    pet.send('release');
+  });
+  el.addEventListener('dblclick', () => pet.send('dblclick'));
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); pet.send('menu'); });
+  // petting: rub the mouse back and forth over the pet
+  el.addEventListener('mousemove', (e) => {
+    if (holding || e.buttons) return;
+    const now = Date.now();
+    if (now - lastRub > 400) rub = 0;
+    lastRub = now;
+    rub += Math.abs(e.movementX) + Math.abs(e.movementY);
+    if (rub > 700 && now > cooldown) {
+      rub = 0;
+      cooldown = now + 2500;
+      pet.send('petted');
+    }
+  });
+}
