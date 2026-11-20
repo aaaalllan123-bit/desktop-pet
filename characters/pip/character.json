@@ -1,0 +1,6 @@
+{
+  "name": "Pip",
+  "lines": ["Ribbit!", "Got any flies?", "Hop hop!", "Splash!"],
+  "size": 130,
+  "speed": 3
+}
