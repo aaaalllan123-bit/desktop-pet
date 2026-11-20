@@ -336,45 +336,42 @@ function createWindow() {
   if (process.env.PET_SELFTEST) selfTest(process.env.PET_SELFTEST);
 }
 
-// Dev-only: `PET_SELFTEST=/some/dir npm start` saves snapshots and a report, then quits.
+// Dev-only smoke test. Run:  PET_SELFTEST=/some/dir [PET_SELFTEST_CHAR=Name] npm start
+// It clicks the pet, plays/mutes music and switches character, then writes
+// report.json plus snapshots to that folder and quits.
 async function selfTest(dir) {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const js = (code) => win.webContents.executeJavaScript(code);
   const snap = async (name) =>
     fs.writeFileSync(path.join(dir, `${name}.png`), (await win.webContents.capturePage()).toPNG());
-  const report = { characters: characters.map((c) => ({ name: c.name, images: Object.keys(c.images), music: c.music.length })) };
-  await wait(2500);
-  report.image = await js('({ src: img.src.split("/").pop(), w: img.naturalWidth, mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName })');
-  await snap('1-start');
-  ipcMain.emit('press', {}, { ox: 120, oy: 200 }); ipcMain.emit('release');
-  await wait(300); report.afterClick = { mode: pet.mode, anim: await js('getComputedStyle(bodyEl).animationName') };
-  await wait(1500); report.afterClickSettled = await js('getComputedStyle(bodyEl).animationName'); await snap('2-click');
-  send('music', { cmd: 'toggle' }); await wait(1500);
-  report.music = await js('({ playing: !audio.paused, t: audio.currentTime, track: tracks[trackIdx]?.name })');
-  report.musicPlaying = musicPlaying;
-  await wait(4000); report.whileMusic = await js('({ mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName })');
   const click = () => { ipcMain.emit('press', {}, { ox: 120, oy: 250 }); ipcMain.emit('release'); };
+  const audioState = () => js('({ paused: audio.paused, muted: audio.muted, track: tracks[trackIdx]?.name })');
+
   const bubbles = [];
-  const origSay = win.webContents.send.bind(win.webContents);
-  win.webContents.send = (ch, data) => { if (ch === 'say') bubbles.push(data); return origSay(ch, data); };
-  switchCharacter(Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || '')))); await wait(1500);
-  if (!musicPlaying) { send('music', { cmd: 'toggle' }); await wait(1000); }
-  report.beforeMute = await js('({ paused: audio.paused, muted: audio.muted })');
-  click(); await wait(500);
-  report.afterClick1 = { ...(await js('({ paused: audio.paused, muted: audio.muted })')), musicPlaying };
-  click(); await wait(500);
-  report.afterClick2 = { ...(await js('({ paused: audio.paused, muted: audio.muted })')), musicPlaying };
+  const realSend = win.webContents.send.bind(win.webContents);
+  win.webContents.send = (ch, data) => { if (ch === 'say') bubbles.push(data); return realSend(ch, data); };
+
+  const report = {
+    characters: characters.map((c) => ({ name: c.name, images: Object.keys(c.images), music: c.music.map((m) => m.name) })),
+  };
+  const target = characters.findIndex((c) => c.name === process.env.PET_SELFTEST_CHAR);
+  if (target >= 0) switchCharacter(target);
+  await wait(2500);
+  report.start = await js('({ mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName, showing: sprites.filter((s) => !s.hidden).map((s) => s.id) })');
+  await snap('1-start');
+
+  if (!musicPlaying) { send('music', { cmd: 'toggle' }); await wait(1500); }
+  report.musicOn = { ...(await audioState()), musicPlaying };
+  click(); await wait(300);
+  report.click1 = { ...(await audioState()), musicPlaying, mode: pet.mode, anim: await js('getComputedStyle(bodyEl).animationName') };
+  await snap('2-click');
+  click(); await wait(1500);
+  report.click2 = { ...(await audioState()), musicPlaying, anim: await js('getComputedStyle(bodyEl).animationName') };
+  report.keyedAlpha = await js(`cvs.hidden ? null : {
+    corner: ctx.getImageData(2, 2, 1, 1).data[3],
+    center: ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3] }`);
   report.bubbles = bubbles;
-  void (Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || "")) ) ); await wait(1500);
-  report.afterSwitch = await js(`({
-    name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,
-    showing: sprites.filter((s) => !s.hidden).map((s) => s.id),
-    bubble: bubble.textContent, playlist: tracks.map((t) => t.name),
-    video: vid.dataset.src ? { w: vid.videoWidth, h: vid.videoHeight, t: vid.currentTime } : null,
-    cornerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(2, 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),
-    centerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),
-  })`);
-  await snap('3-switch');
+  await snap('3-end');
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 2));
   app.quit();
 }
