@@ -123,7 +123,7 @@ pet.on('fx', (kind) => {
 });
 bodyEl.addEventListener('animationend', () => bodyEl.classList.remove('shake'));
 setInterval(() => {
-  if (!audio.paused) particle(Math.random() < 0.5 ? '♪' : '♫');
+  if (!audio.paused && !audio.muted) particle(Math.random() < 0.5 ? '♪' : '♫');
   else if (mode === 'sleep') particle('💤');
 }, 800);
 
@@ -145,15 +145,25 @@ function loadTrack(i) {
   audio.src = tracks[trackIdx].url;
 }
 function report() {
-  pet.send('music-state', { playing: !audio.paused, track: tracks[trackIdx]?.name });
+  // muted counts as not playing, so the pet stops dancing
+  pet.send('music-state', { playing: !audio.paused && !audio.muted, track: tracks[trackIdx]?.name });
 }
 audio.addEventListener('play', report);
 audio.addEventListener('pause', report);
+audio.addEventListener('volumechange', report);
 audio.addEventListener('ended', () => { loadTrack(trackIdx + 1); audio.play().catch(() => {}); });
 
 pet.on('music', ({ cmd, value }) => {
   if (!tracks.length && cmd !== 'volume') return;
-  if (cmd === 'toggle') audio.paused ? audio.play().catch(() => {}) : audio.pause();
+  if (cmd === 'toggle') {
+    if (!audio.paused && audio.muted) audio.muted = false;      // muted -> just unmute
+    else if (audio.paused) { audio.muted = false; audio.play().catch(() => {}); }
+    else audio.pause();
+  }
+  if (cmd === 'mute' && !audio.paused) {                        // single click on the pet
+    audio.muted = !audio.muted;
+    particle(audio.muted ? '🔇' : '🔊');
+  }
   if (cmd === 'next') { loadTrack(trackIdx + 1); audio.play().catch(() => {}); }
   if (cmd === 'volume') audio.volume = value;
 });

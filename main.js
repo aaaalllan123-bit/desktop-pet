@@ -77,6 +77,7 @@ function buildCharacter(folderName, parts) {
   return {
     name: cfg.name || folderName,
     greeting: cfg.greeting || null,
+    onlySayLines: !!cfg.onlySayLines,          // bubble shows only greeting/lines, no status messages
     images,
     music,
     lines: Array.isArray(cfg.lines) && cfg.lines.length ? cfg.lines : DEFAULT_LINES,
@@ -127,19 +128,21 @@ function reloadCharacters() {
   characters = loadCharacters();
   current = Math.max(0, characters.findIndex((c) => c.name === name));
   sendCharacter();
-  say(`${characters.length} friends loaded!`);
+  sayExtra(`${characters.length} friends loaded!`);
 }
 
 // ---------- behaviour ----------
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a));
 const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch, data);
 const say = (text) => send('say', text);
+// status messages (song names, yawns...) are skipped for characters with onlySayLines
+const sayExtra = (text) => { if (!char()?.onlySayLines) say(text); };
 
 function setMode(m) { pet.mode = m; }
 
 function poke() {
   pet.lastInteraction = Date.now();
-  if (pet.mode === 'sleep') { setMode('idle'); pet.timer = 40; say('*yawn*'); }
+  if (pet.mode === 'sleep') { setMode('idle'); pet.timer = 40; sayExtra('*yawn*'); }
 }
 
 function hop(strength = 9) { pet.vy = -strength; pet.airborne = true; }
@@ -273,7 +276,8 @@ ipcMain.on('release', () => {
     pet.vy = Math.max(-40, Math.min(40, pet.vy));
     setMode('fall');
   } else if (pet.press) {
-    // a plain click
+    // a plain click: mute / unmute the music, and react
+    send('music', { cmd: 'mute' });
     if (pet.mode !== 'sleep') {
       setMode('happy'); pet.timer = 45; hop();
       send('fx', 'shake');
@@ -290,7 +294,7 @@ ipcMain.on('petted', () => {
   poke();
   setMode('happy'); pet.timer = 60;
   send('fx', 'hearts');
-  say('♥ purr ♥');
+  sayExtra('♥ purr ♥');
 });
 
 ipcMain.on('menu', () => { poke(); showMenu(); });
@@ -302,7 +306,7 @@ ipcMain.on('ignore-mouse', (_e, ignore) => {
 ipcMain.on('music-state', (_e, { playing, track }) => {
   const started = playing && !musicPlaying;
   musicPlaying = playing;
-  if (started) { poke(); pet.timer = 0; if (track) say(`♪ ${track}`); }
+  if (started) { poke(); pet.timer = 0; if (track) sayExtra(`♪ ${track}`); }
   if (!playing && pet.mode === 'dance') { setMode('idle'); pet.timer = 30; }
 });
 
@@ -349,7 +353,19 @@ async function selfTest(dir) {
   report.music = await js('({ playing: !audio.paused, t: audio.currentTime, track: tracks[trackIdx]?.name })');
   report.musicPlaying = musicPlaying;
   await wait(4000); report.whileMusic = await js('({ mode: petEl.dataset.mode, anim: getComputedStyle(bodyEl).animationName })');
-  switchCharacter(Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || "")) ) ); await wait(1500);
+  const click = () => { ipcMain.emit('press', {}, { ox: 120, oy: 250 }); ipcMain.emit('release'); };
+  const bubbles = [];
+  const origSay = win.webContents.send.bind(win.webContents);
+  win.webContents.send = (ch, data) => { if (ch === 'say') bubbles.push(data); return origSay(ch, data); };
+  switchCharacter(Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || '')))); await wait(1500);
+  if (!musicPlaying) { send('music', { cmd: 'toggle' }); await wait(1000); }
+  report.beforeMute = await js('({ paused: audio.paused, muted: audio.muted })');
+  click(); await wait(500);
+  report.afterClick1 = { ...(await js('({ paused: audio.paused, muted: audio.muted })')), musicPlaying };
+  click(); await wait(500);
+  report.afterClick2 = { ...(await js('({ paused: audio.paused, muted: audio.muted })')), musicPlaying };
+  report.bubbles = bubbles;
+  void (Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || "")) ) ); await wait(1500);
   report.afterSwitch = await js(`({
     name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,
     showing: sprites.filter((s) => !s.hidden).map((s) => s.id),

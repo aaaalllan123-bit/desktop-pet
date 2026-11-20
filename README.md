@@ -27,7 +27,7 @@ xattr -cr "/Applications/Desktop Pet.app"
 
 | Do this | What happens |
 | --- | --- |
-| Click the pet | It hops and says something |
+| Click the pet | It hops, says something, and mutes the music (click again to unmute) |
 | Double-click | Play / pause its music |
 | Drag it | Pick it up; let go to drop or throw it |
 | Rub the mouse back and forth over it | Petting: it gets happy and shows hearts |
@@ -86,7 +86,7 @@ If the character only fills part of a wide video, crop to it (numbers are in vid
 }
 ```
 
-`greeting` is what it says when you pick it; `lines` are what it says when clicked (any language works). `size` is the width in pixels; `speed` is how fast it walks.
+`greeting` is what it says when you pick it; set `"onlySayLines": true` to show nothing but the greeting and lines (no song names or other messages); `lines` are what it says when clicked (any language works). `size` is the width in pixels; `speed` is how fast it walks.
 
 ### Adding characters without rebuilding
 

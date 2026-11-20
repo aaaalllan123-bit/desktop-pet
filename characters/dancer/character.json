@@ -13,5 +13,6 @@
   "lines": [
     "宁静 祥和 令人向往"
   ],
-  "greeting": "宁静 祥和 令人向往"
+  "greeting": "宁静 祥和 令人向往",
+  "onlySayLines": true
 }
