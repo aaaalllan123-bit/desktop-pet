@@ -5,7 +5,7 @@ const { pathToFileURL } = require('url');
 
 // ---------- constants ----------
 const WIN_W = 240;
-const WIN_H = 260;
+const WIN_H = 300;
 const TICK_MS = 33;
 const GRAVITY = 1.2;
 const SLEEP_AFTER_MS = 90_000;
@@ -79,6 +79,7 @@ function readCharacter(dir, folderName) {
     speed: cfg.speed || 2,
     chromaKey: cfg.chromaKey || null,          // e.g. "#00ff00" to remove a green-screen background
     chromaTolerance: cfg.chromaTolerance ?? 0.3,
+    crop: cfg.crop || null,                    // { "x", "y", "width", "height" } in video pixels
   };
 }
 
@@ -337,7 +338,7 @@ async function selfTest(dir) {
   send('music', { cmd: 'toggle' }); await wait(1500);
   report.music = await js('({ playing: !audio.paused, t: audio.currentTime, track: tracks[trackIdx]?.name })');
   report.musicPlaying = musicPlaying;
-  switchCharacter(characters.length - 1); await wait(1500);
+  switchCharacter(Math.max(0, characters.findIndex((c) => c.name === (process.env.PET_SELFTEST_CHAR || "")) ) ); await wait(1500);
   report.afterSwitch = await js(`({
     name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,
     showing: sprites.filter((s) => !s.hidden).map((s) => s.id),

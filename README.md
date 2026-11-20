@@ -59,10 +59,18 @@ The background of the video needs to disappear, or you'll see a box on the deskt
   ```json
   { "chromaKey": "#00ff00", "chromaTolerance": 0.3 }
   ```
-  `chromaKey` is the background colour to remove. If green edges remain, raise `chromaTolerance` a little (e.g. `0.4`); if parts of the character vanish, lower it. Don't use that colour on the character itself.
+  `chromaKey` is the background colour to remove (use a colour picker on a frame of your video; real green screens are often darker, like `#009c00`). If green edges remain, raise `chromaTolerance` a little (e.g. `0.4`); if parts of the character vanish, lower it. Don't use that colour on the character itself.
 - **Transparent video:** a `.webm` (VP9) exported with an alpha channel plays as-is, with no `chromaKey` needed. Many editors and AI background removers (e.g. Kapwing, Unscreen, After Effects, DaVinci Resolve) can export this.
 
 Plain MP4/MOV files can't store transparency, so they need the green-screen option.
+
+If the character only fills part of a wide video, crop to it (numbers are in video pixels, measured from the top-left corner):
+
+```json
+{ "crop": { "x": 375, "y": 0, "width": 210, "height": 464 } }
+```
+
+`size` sets how wide the character appears on screen; its height follows the video's shape.
 
 **Music:** MP3, WAV, OGG, M4A, FLAC or AAC. Songs play in alphabetical order and loop.
 

@@ -1,0 +1,9 @@
+{
+  "name": "Dancer",
+  "chromaKey": "#009c00",
+  "chromaTolerance": 0.3,
+  "crop": { "x": 375, "y": 0, "width": 210, "height": 464 },
+  "size": 100,
+  "speed": 2,
+  "lines": ["Let's dance!", "Feel the beat!", "Watch my moves~", "One more song?"]
+}

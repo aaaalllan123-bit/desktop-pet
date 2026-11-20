@@ -46,23 +46,35 @@ function startKeying() {
 }
 function drawKeyed() {
   if (cvs.hidden || !chr?.chromaKey) { keying = false; return; }
-  const w = vid.videoWidth, h = vid.videoHeight;
-  if (w && h && vid.readyState >= 2) {
+  const vw = vid.videoWidth, vh = vid.videoHeight;
+  if (vw && vh && vid.readyState >= 2) {
+    const c = chr.crop || {};
+    const sx = c.x || 0, sy = c.y || 0;
+    const w = Math.min(c.width || vw, vw - sx), h = Math.min(c.height || vh, vh - sy);
     if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
-    ctx.drawImage(vid, 0, 0, w, h);
+    ctx.drawImage(vid, sx, sy, w, h, 0, 0, w, h);
     const frame = ctx.getImageData(0, 0, w, h);
-    const d = frame.data;
-    const [kr, kg, kb] = hexToRgb(chr.chromaKey);
-    const tol = chr.chromaTolerance * 441;   // 441 = max distance between two colours
-    const soft = tol * 0.4;                  // soft edge so the outline isn't jagged
-    for (let i = 0; i < d.length; i += 4) {
-      const dist = Math.hypot(d[i] - kr, d[i + 1] - kg, d[i + 2] - kb);
-      if (dist < tol) d[i + 3] = 0;
-      else if (dist < tol + soft) d[i + 3] = Math.round(255 * (dist - tol) / soft);
-    }
+    keyOut(frame.data, hexToRgb(chr.chromaKey), chr.chromaTolerance);
     ctx.putImageData(frame, 0, 0);
   }
   requestAnimationFrame(drawKeyed);
+}
+
+// Green/blue-screen keying: a pixel is background when the key's main channel clearly
+// beats the other two (so black and white parts of the character stay solid).
+function keyOut(d, key, tolerance) {
+  const main = key[1] >= key[2] ? 1 : 2;           // 1 = green screen, 2 = blue screen
+  const o1 = main === 1 ? 0 : 0, o2 = main === 1 ? 2 : 1;
+  const keyScore = Math.max(1, key[main] - Math.max(key[o1], key[o2]));
+  const lo = keyScore * tolerance;                 // below this: fully visible
+  const hi = keyScore * (tolerance + 0.25);        // above this: fully transparent
+  for (let i = 0; i < d.length; i += 4) {
+    const other = Math.max(d[i + o1], d[i + o2]);
+    const score = d[i + main] - other;
+    if (score >= hi) { d[i + 3] = 0; continue; }
+    if (score > lo) d[i + 3] = Math.round(255 * (hi - score) / (hi - lo));
+    if (score > 0) d[i + main] = other;            // remove green/blue fringe on edges
+  }
 }
 
 pet.on('character', (c) => {
