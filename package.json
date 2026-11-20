@@ -1,5 +1,6 @@
 {
   "name": "desktop-pet",
+  "productName": "Desktop Pet",
   "version": "1.0.0",
   "description": "A little pet that lives on your desktop, walks around, plays music and reacts to you.",
   "author": "Desktop Pet contributors",

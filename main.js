@@ -41,12 +41,14 @@ const bundledCharDir = () =>
   app.isPackaged ? path.join(process.resourcesPath, 'characters') : path.join(__dirname, 'characters');
 const userCharDir = () => path.join(app.getPath('userData'), 'characters');
 
-function readCharacter(dir, folderName) {
+// Read one character folder. Pictures/videos/music may be partial: a folder in the personal
+// characters folder with the same name as a built-in one only adds to it (e.g. extra songs).
+function readFolder(dir) {
   let cfg = {};
   const cfgPath = path.join(dir, 'character.json');
   if (fs.existsSync(cfgPath)) {
     try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); }
-    catch (err) { console.warn(`Bad character.json in ${dir}: ${err.message}`); return null; }
+    catch (err) { console.warn(`Bad character.json in ${dir}: ${err.message}`); }
   }
   const files = fs.readdirSync(dir).filter((f) => !f.startsWith('.'));
   const url = (f) => pathToFileURL(path.join(dir, f)).href;
@@ -56,22 +58,25 @@ function readCharacter(dir, folderName) {
   if (cfg.images) for (const [mode, file] of Object.entries(cfg.images)) images[mode] = url(file);
   if (cfg.image) images.idle ??= url(cfg.image);
   for (const f of files) {
-    if (IMG_EXT.test(f)) {
-      const mode = path.parse(f).name.toLowerCase();
-      images[mode] ??= url(f);
-    }
+    if (IMG_EXT.test(f)) images[path.parse(f).name.toLowerCase()] ??= url(f);
   }
-  if (!images.idle) {
-    const first = files.find((f) => IMG_EXT.test(f));
-    if (!first) return null; // no picture = not a character
-    images.idle = url(first);
-  }
+  const first = files.find((f) => IMG_EXT.test(f));
 
   const musicFiles = cfg.music ?? files.filter((f) => AUDIO_EXT.test(f)).sort();
   const music = musicFiles.map((f) => ({ name: path.parse(f).name, url: url(f) }));
+  return { cfg, images, music, firstImage: first ? url(first) : null };
+}
 
+// parts: [built-in folder, personal folder] (either may be missing); personal wins.
+function buildCharacter(folderName, parts) {
+  const cfg = Object.assign({}, ...parts.map((p) => p.cfg));
+  const images = Object.assign({}, ...parts.map((p) => p.images));
+  images.idle ??= parts.map((p) => p.firstImage).find(Boolean);
+  if (!images.idle) return null; // no picture = not a character
+  const music = [...parts].reverse().flatMap((p) => p.music); // personal songs play first
   return {
     name: cfg.name || folderName,
+    greeting: cfg.greeting || null,
     images,
     music,
     lines: Array.isArray(cfg.lines) && cfg.lines.length ? cfg.lines : DEFAULT_LINES,
@@ -85,18 +90,21 @@ function readCharacter(dir, folderName) {
 
 function loadCharacters() {
   fs.mkdirSync(userCharDir(), { recursive: true });
-  const list = [];
+  const folders = new Map(); // folder name -> [parts]
   for (const root of [bundledCharDir(), userCharDir()]) {
     let entries = [];
     try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       if (!e.isDirectory()) continue;
-      const c = readCharacter(path.join(root, e.name), e.name);
-      if (c) list.push(c);
+      const key = e.name.toLowerCase();
+      if (!folders.has(key)) folders.set(key, { name: e.name, parts: [] });
+      folders.get(key).parts.push(readFolder(path.join(root, e.name)));
     }
   }
-  return list;
+  return [...folders.values()].map((f) => buildCharacter(f.name, f.parts)).filter(Boolean);
 }
+
+const greeting = (c) => c.greeting || `I'm ${c.name}!`;
 
 const char = () => characters[current];
 
@@ -111,7 +119,7 @@ function switchCharacter(i) {
   settings.character = char().name;
   saveSettings();
   sendCharacter();
-  say(`I'm ${char().name}!`);
+  say(greeting(char()));
 }
 
 function reloadCharacters() {
@@ -317,7 +325,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.on('did-finish-load', () => {
     sendCharacter();
-    say(char() ? `Hi! I'm ${char().name}` : 'No characters found!');
+    say(char() ? greeting(char()) : 'No characters found!');
   });
 
   setInterval(tick, TICK_MS);
@@ -345,6 +353,7 @@ async function selfTest(dir) {
   report.afterSwitch = await js(`({
     name: chr.name, playing: !audio.paused, track: tracks[trackIdx]?.name,
     showing: sprites.filter((s) => !s.hidden).map((s) => s.id),
+    bubble: bubble.textContent, playlist: tracks.map((t) => t.name),
     video: vid.dataset.src ? { w: vid.videoWidth, h: vid.videoHeight, t: vid.currentTime } : null,
     cornerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(2, 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),
     centerAlpha: cvs.hidden ? null : (() => { try { return ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3]; } catch (e) { return String(e); } })(),

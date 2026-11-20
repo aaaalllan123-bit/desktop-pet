@@ -79,17 +79,20 @@ If the character only fills part of a wide video, crop to it (numbers are in vid
 ```json
 {
   "name": "Mochi",
+  "greeting": "Hi, I'm Mochi!",
   "lines": ["Nya~", "Pet me!", "Is it nap time?"],
   "size": 140,
   "speed": 2
 }
 ```
 
-`size` is the width in pixels; `speed` is how fast it walks.
+`greeting` is what it says when you pick it; `lines` are what it says when clicked (any language works). `size` is the width in pixels; `speed` is how fast it walks.
 
 ### Adding characters without rebuilding
 
 Anyone who downloaded the app can add their own: right-click the pet → **Add my own character…** opens a folder. Put a character folder in there, then right-click → **Reload characters**.
+
+To give a **built-in** character your own songs (or pictures), make a folder there with the **same folder name** (e.g. `dancer`) and put the files in it. They're added to that character, and your songs play first. Files in this personal folder stay on your computer and are never part of the app or this repo, which makes it the right place for music you own but can't share.
 
 ### Adding characters to the app for everyone
 
