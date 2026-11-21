@@ -40,12 +40,12 @@ Each character is a folder with pictures and music. The app finds them automatic
 
 ```
 characters/
-  mochi/
+  my-character/
     idle.png          ← required (any one picture works)
     walk.gif          ← optional extra pictures, named after the mode
     sleep.png
     happy.png
-    Mochi Theme.mp3   ← any music files in the folder become its playlist
+    My Theme.mp3      ← any music files in the folder become its playlist
     character.json    ← optional: name, lines, size, speed
 ```
 
@@ -78,8 +78,8 @@ If the character only fills part of a wide video, crop to it (numbers are in vid
 
 ```json
 {
-  "name": "Mochi",
-  "greeting": "Hi, I'm Mochi!",
+  "name": "Momo",
+  "greeting": "Hi, I'm Momo!",
   "lines": ["Nya~", "Pet me!", "Is it nap time?"],
   "size": 140,
   "speed": 2
