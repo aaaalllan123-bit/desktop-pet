@@ -10,10 +10,10 @@ Go to the [**Releases**](../../releases/latest) page and download the file for y
 
 | System | File |
 | --- | --- |
-| Mac (Apple Silicon, M1 or newer) | `Desktop Pet-x.y.z-arm64.dmg` |
-| Mac (Intel) | `Desktop Pet-x.y.z.dmg` |
-| Windows | `Desktop Pet Setup x.y.z.exe` (installer) or `Desktop Pet x.y.z.exe` (portable) |
-| Linux | `Desktop Pet-x.y.z.AppImage` |
+| Mac (Apple Silicon, M1 or newer) | `Desktop.Pet-x.y.z-arm64.dmg` |
+| Mac (Intel) | `Desktop.Pet-x.y.z.dmg` |
+| Windows | `Desktop.Pet.Setup.x.y.z.exe` (installer) or `Desktop.Pet.x.y.z.exe` (portable, no install) |
+| Linux | `Desktop.Pet-x.y.z.AppImage` |
 
 **Mac:** the app isn't signed with a paid Apple developer account, so macOS will block it the first time. After dragging it to Applications, run this once in Terminal:
 
