@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, Menu, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -76,6 +76,7 @@ function buildCharacter(folderName, parts) {
   const music = [...parts].reverse().flatMap((p) => p.music); // personal songs play first
   return {
     name: cfg.name || folderName,
+    folder: folderName,
     greeting: cfg.greeting || null,
     onlySayLines: !!cfg.onlySayLines,          // bubble shows only greeting/lines, no status messages
     images,
@@ -121,6 +122,38 @@ function switchCharacter(i) {
   saveSettings();
   sendCharacter();
   say(greeting(char()));
+}
+
+// "Add a song…": copy the chosen files into this character's personal folder
+// (they stay on this computer only), reload, and start playing the first one.
+function addSongs(files) {
+  const c = char();
+  if (!c || !files.length) return;
+  const dir = path.join(userCharDir(), c.folder);
+  fs.mkdirSync(dir, { recursive: true });
+  let first = null;
+  for (const src of files) {
+    let name = path.basename(src);
+    // Some downloads are really M4A audio with an .aac name; give them the right extension.
+    try {
+      const head = Buffer.alloc(12);
+      const fd = fs.openSync(src, 'r'); fs.readSync(fd, head, 0, 12, 0); fs.closeSync(fd);
+      if (/\.aac$/i.test(name) && head.toString('latin1', 4, 8) === 'ftyp') name = name.replace(/\.aac$/i, '.m4a');
+    } catch {}
+    fs.copyFileSync(src, path.join(dir, name));
+    first ??= path.parse(name).name;
+  }
+  reloadCharacters();
+  send('music', { cmd: 'play', name: first });
+}
+
+async function chooseSongs() {
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Choose a song for ' + (char()?.name ?? 'the pet'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Music', extensions: ['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac'] }],
+  });
+  if (!r.canceled) addSongs(r.filePaths);
 }
 
 function reloadCharacters() {
@@ -269,6 +302,7 @@ function showMenu() {
     { type: 'separator' },
     { label: musicPlaying ? 'Pause music' : 'Play music', enabled: !!c?.music.length,
       click: () => send('music', { cmd: 'toggle' }) },
+    { label: 'Add a song…', enabled: !!c, click: chooseSongs },
     { label: 'Next song', enabled: (c?.music.length ?? 0) > 1, click: () => send('music', { cmd: 'next' }) },
     { label: 'Volume', submenu: [0.2, 0.4, 0.6, 0.8, 1].map((v) => ({
       label: `${Math.round(v * 100)}%`, type: 'radio', checked: settings.volume === v,
@@ -407,6 +441,10 @@ async function selfTest(dir) {
     corner: ctx.getImageData(2, 2, 1, 1).data[3],
     center: ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3] }`);
   report.bubbles = bubbles;
+  if (process.env.PET_SELFTEST_ADDSONG) {
+    addSongs([process.env.PET_SELFTEST_ADDSONG]); await wait(2000);
+    report.afterAddSong = { playlist: char().music.map((m) => m.name), ...(await audioState()), t: await js('audio.currentTime') };
+  }
   // off-screen recovery: fling the pet far away and check it ends up fully on screen
   const wa = screen.getPrimaryDisplay().workArea;
   report.offscreen = [];

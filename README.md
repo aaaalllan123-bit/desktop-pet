@@ -31,7 +31,7 @@ xattr -cr "/Applications/Desktop Pet.app"
 | Double-click | Play / pause its music |
 | Drag it | Pick it up; let go to drop or throw it |
 | Rub the mouse back and forth over it | Petting: it gets happy and shows hearts |
-| Right-click | Menu: music, volume, switch character, follow mouse, bring back to screen, sleep, quit |
+| Right-click | Menu: music, **Add a song…**, volume, switch character, follow mouse, bring back to screen, sleep, quit |
 | Leave it alone for 90 seconds | It falls asleep |
 
 ## Characters
@@ -87,6 +87,10 @@ If the character only fills part of a wide video, crop to it (numbers are in vid
 ```
 
 `greeting` is what it says when you pick it; set `"onlySayLines": true` to show nothing but the greeting and lines (no song names or other messages); `lines` are what it says when clicked (any language works). `size` is the width in pixels; `speed` is how fast it walks.
+
+### Adding your own music
+
+Right-click the pet → **Add a song…** and pick one or more music files. They're copied into your personal folder (they stay on your computer only) and start playing right away.
 
 ### Adding characters without rebuilding
 

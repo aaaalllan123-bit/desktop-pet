@@ -153,7 +153,7 @@ audio.addEventListener('pause', report);
 audio.addEventListener('volumechange', report);
 audio.addEventListener('ended', () => { loadTrack(trackIdx + 1); audio.play().catch(() => {}); });
 
-pet.on('music', ({ cmd, value }) => {
+pet.on('music', ({ cmd, value, name }) => {
   if (!tracks.length && cmd !== 'volume') return;
   if (cmd === 'toggle') {
     if (!audio.paused && audio.muted) audio.muted = false;      // muted -> just unmute
@@ -163,6 +163,12 @@ pet.on('music', ({ cmd, value }) => {
   if (cmd === 'mute' && !audio.paused) {                        // single click on the pet
     audio.muted = !audio.muted;
     particle(audio.muted ? '🔇' : '🔊');
+  }
+  if (cmd === 'play') {
+    const i = tracks.findIndex((t) => t.name === name);
+    if (i >= 0) loadTrack(i);
+    audio.muted = false;
+    audio.play().catch(() => {});
   }
   if (cmd === 'next') { loadTrack(trackIdx + 1); audio.play().catch(() => {}); }
   if (cmd === 'volume') audio.volume = value;
