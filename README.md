@@ -31,7 +31,7 @@ xattr -cr "/Applications/Desktop Pet.app"
 | Double-click | Play / pause its music |
 | Drag it | Pick it up; let go to drop or throw it |
 | Rub the mouse back and forth over it | Petting: it gets happy and shows hearts |
-| Right-click | Menu: music, volume, switch character, follow mouse, sleep, quit |
+| Right-click | Menu: music, volume, switch character, follow mouse, bring back to screen, sleep, quit |
 | Leave it alone for 90 seconds | It falls asleep |
 
 ## Characters

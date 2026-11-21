@@ -189,8 +189,12 @@ function tick() {
     x: Math.round(pet.x + WIN_W / 2), y: Math.round(pet.y + WIN_H / 2),
   }).workArea;
   const ground = wa.y + wa.height - WIN_H;
-  const minX = wa.x - 40;
-  const maxX = wa.x + wa.width - WIN_W + 40;
+  // The pet is drawn centred in a wider transparent window: let only the empty side margin
+  // go past the screen edge, so the character itself always stays fully visible.
+  const margin = Math.max(0, Math.floor((WIN_W - (char()?.size ?? 140)) / 2) - 4);
+  const minX = wa.x - margin;
+  const maxX = wa.x + wa.width - WIN_W + margin;
+  const minY = wa.y - Math.floor(WIN_H / 2); // a throw may go a little above the top
 
   if (pet.press && !pet.dragging &&
       Math.hypot(cur.x - pet.press.sx, cur.y - pet.press.sy) > 5) {
@@ -223,11 +227,38 @@ function tick() {
     behave(cur, minX, maxX);
   }
 
+  // Never leave the screen (also fixes a pet stranded by a resolution/monitor change).
+  if (!pet.dragging) {
+    if (pet.x < minX) pet.x = minX;
+    if (pet.x > maxX) pet.x = maxX;
+    if (pet.y > ground) pet.y = ground;
+    if (pet.y < minY) { pet.y = minY; pet.vy = Math.max(pet.vy, 0); }
+  }
+
   const key = `${pet.mode}|${pet.dir}`;
   if (key !== pet.lastSent) { pet.lastSent = key; send('state', { mode: pet.mode, dir: pet.dir }); }
 
   const pos = `${Math.round(pet.x)},${Math.round(pet.y)}`;
-  if (pos !== pet.lastPos) { pet.lastPos = pos; win.setPosition(Math.round(pet.x), Math.round(pet.y)); }
+  if (pos !== pet.lastPos) {
+    pet.lastPos = pos;
+    // setBounds with the size every time: on Windows with display scaling (125%, 150%...)
+    // setPosition alone makes the window slowly grow and drift.
+    win.setBounds({ x: Math.round(pet.x), y: Math.round(pet.y), width: WIN_W, height: WIN_H });
+  }
+}
+
+function inside(b) {
+  const cx = pet.x + WIN_W / 2, cy = pet.y + WIN_H / 2;
+  return cx >= b.x && cx < b.x + b.width && cy >= b.y && cy < b.y + b.height;
+}
+
+function bringBack() {
+  const wa = screen.getPrimaryDisplay().workArea;
+  pet.dragging = false; pet.press = null; pet.airborne = false;
+  pet.vx = 0; pet.vy = 0;
+  pet.x = wa.x + Math.round((wa.width - WIN_W) * 0.7);
+  pet.y = wa.y + wa.height - WIN_H;
+  pet.lastPos = '';
 }
 
 // ---------- menu ----------
@@ -251,6 +282,7 @@ function showMenu() {
       click: (m) => { settings.walking = m.checked; saveSettings(); } },
     { label: 'Follow my mouse', type: 'checkbox', checked: settings.chase,
       click: (m) => { settings.chase = m.checked; saveSettings(); pet.timer = 0; } },
+    { label: 'Bring back to screen', click: bringBack },
     { label: 'Go to sleep', click: () => { setMode('sleep'); pet.timer = 300; pet.lastInteraction = 0; } },
     { type: 'separator' },
     { label: 'Add my own character…', click: () => shell.openPath(userCharDir()) },
@@ -333,6 +365,10 @@ function createWindow() {
   });
 
   setInterval(tick, TICK_MS);
+  // Screens added/removed/rescaled: re-apply the position (tick() clamps it back on screen).
+  for (const ev of ['display-added', 'display-removed', 'display-metrics-changed']) {
+    screen.on(ev, () => { pet.lastPos = ''; if (!screen.getAllDisplays().some((d) => inside(d.bounds))) bringBack(); });
+  }
   if (process.env.PET_SELFTEST) selfTest(process.env.PET_SELFTEST);
 }
 
@@ -371,6 +407,15 @@ async function selfTest(dir) {
     corner: ctx.getImageData(2, 2, 1, 1).data[3],
     center: ctx.getImageData(cvs.width / 2, cvs.height / 2, 1, 1).data[3] }`);
   report.bubbles = bubbles;
+  // off-screen recovery: fling the pet far away and check it ends up fully on screen
+  const wa = screen.getPrimaryDisplay().workArea;
+  report.offscreen = [];
+  for (const [x, y] of [[-5000, -5000], [wa.x + wa.width + 3000, wa.y + 200], [wa.x + 100, wa.y + wa.height + 2000]]) {
+    pet.x = x; pet.y = y; pet.vx = 0; pet.vy = 0; pet.airborne = true;
+    await wait(2500);
+    const b = win.getBounds();
+    report.offscreen.push({ from: [x, y], bounds: b, workArea: wa });
+  }
   await snap('3-end');
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 2));
   app.quit();
